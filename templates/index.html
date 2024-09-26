@@ -111,7 +111,6 @@
                     <td>{{ employee.name }}</td>
                     <td>{{ employee.dates | join(', ') }}</td>
                     <td>
-                        <!-- Edit Button -->
                         <button type="button" class="edit-btn" data-row-id="{{ loop.index0 }}" data-name="{{ employee.name }}" data-dates="{{ employee.dates | tojson }}">Edit</button>
                     </td>
                 </tr>
@@ -126,9 +125,8 @@
         const leaveDatesInput = document.getElementById('leave_dates');
         const selectedDates = new Set();
 
-        const currentDate = new Date();
-        let selectedYear = currentDate.getFullYear();
-        let selectedMonth = currentDate.getMonth();
+        let selectedYear;
+        let selectedMonth;
 
         function generateCalendar(year, month) {
             calendarDiv.innerHTML = '';
@@ -231,4 +229,32 @@
                 const dates = JSON.parse(btn.getAttribute('data-dates'));
 
                 // Set form to edit mode
-                document.getElementById('editMode').value
+                document.getElementById('editMode').value = 'true';
+                document.getElementById('editRowId').value = rowId;
+                document.getElementById('employee_name').value = name;
+
+                // Clear previous selections and add new ones
+                selectedDates.clear();
+                dates.forEach(date => selectedDates.add(date));
+                updateSelectedDatesList();
+
+                // Update calendar view
+                const [year, month] = dates[0].split('-').map(Number);
+                document.getElementById('yearSelect').value = year;
+                document.getElementById('monthSelect').value = month - 1;  // Adjust for 0-indexed months
+                generateCalendar(year, month - 1);
+            });
+        });
+
+        // Initial calendar generation
+        const currentDate = new Date();
+        selectedYear = currentDate.getFullYear();
+        selectedMonth = currentDate.getMonth();
+        generateCalendar(selectedYear, selectedMonth);
+
+        // Set initial values for year and month selects
+        document.getElementById('yearSelect').value = selectedYear;
+        document.getElementById('monthSelect').value = selectedMonth;
+    </script>
+</body>
+</html>
