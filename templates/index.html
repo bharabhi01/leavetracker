@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Leave Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .calendar {
+            display: inline-block;
+            margin: 10px;
+        }
+        .selected-date {
+            background-color: #4caf50;
+            color: white;
+        }
+        .remove-btn {
+            margin-left: 10px;
+            cursor: pointer;
+            color: red;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">Employee Leave Tracker</h1>
+        <form id="leaveForm" method="POST" action="/">
+            <input type="hidden" id="editMode" name="editMode" value="false">
+            <input type="hidden" id="editRowId" name="editRowId" value="">
+
+            <div class="field">
+                <label class="label">Employee Name</label>
+                <div class="control">
+                    <div class="select is-fullwidth">
+                        <select id="employee_name" name="employee_name" required>
+                            <option value="">Select Employee</option>
+                            {% for name in employee_names %}
+                                <option value="{{ name }}">{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="label">Select Year and Month</label>
+                <div class="control" style="display: flex; gap: 10px;">
+                    <div class="select">
+                        <select id="yearSelect" name="year" required>
+                            <option value="">Select Year</option>
+                            {% for year in range(2020, 2031) %}
+                                <option value="{{ year }}">{{ year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="select">
+                        <select id="monthSelect" name="month" required>
+                            <option value="">Select Month</option>
+                            {% for month in ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] %}
+                                <option value="{{ loop.index0 }}">{{ month }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="label">Select Leave Dates</label>
+                <div class="control">
+                    <div id="calendar" class="calendar"></div>
+                    <input type="hidden" id="leave_dates" name="leave_dates" required>
+                </div>
+            </div>
+
+            <div>
+                <h3>Selected Dates:</h3>
+                <ul id="selectedDates"></ul>
+            </div>
+
+            <div class="field">
+                <div class="control">
+                    <button type="submit" class="button is-primary">Submit</button>
+                </div>
+            </div>
+        </form>
+
+        <h2>Employee Leave Data</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Leave Dates</th>
+                    <th>Edit</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for employee in employee_data %}
+                <tr>
+                    <td>{{ employee.name }}</td>
+                    <td>{{ employee.dates | join(', ') }}</td>
+                    <td>
+                        <!-- Edit Button -->
+                        <button type="button" class="edit-btn" data-row-id="{{ loop.index0 }}" data-name="{{ employee.name }}" data-dates="{{ employee.dates | tojson }}">Edit</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const calendarDiv = document.getElementById('calendar');
+        const selectedDatesList = document.getElementById('selectedDates');
+        const leaveDatesInput = document.getElementById('leave_dates');
+        const selectedDates = new Set();
+
+        const currentDate = new Date();
+        let selectedYear = currentDate.getFullYear();
+        let selectedMonth = currentDate.getMonth();
+
+        function generateCalendar(year, month) {
+            calendarDiv.innerHTML = '';
+            const firstDayOfMonth = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            const daysHeader = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const headerRow = document.createElement('div');
+            headerRow.style.display = "flex";
+            daysHeader.forEach(day => {
+                const dayElement = document.createElement('div');
+                dayElement.style.width = '30px';
+                dayElement.style.textAlign = 'center';
+                dayElement.textContent = day;
+                headerRow.appendChild(dayElement);
+            });
+            calendarDiv.appendChild(headerRow);
+
+            let row = document.createElement('div');
+            row.style.display = "flex";
+
+            for (let i = 0; i < firstDayOfMonth; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.style.width = '30px';
+                row.appendChild(emptyCell);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayCell = document.createElement('div');
+                dayCell.textContent = day;
+                dayCell.style.width = '30px';
+                dayCell.style.height = '30px';
+                dayCell.style.textAlign = 'center';
+                dayCell.style.cursor = 'pointer';
+                dayCell.addEventListener('click', () => toggleDateSelection(year, month, day, dayCell));
+                row.appendChild(dayCell);
+
+                if ((day + firstDayOfMonth) % 7 === 0) {
+                    calendarDiv.appendChild(row);
+                    row = document.createElement('div');
+                    row.style.display = "flex";
+                }
+            }
+
+            if (row.children.length > 0) {
+                calendarDiv.appendChild(row);
+            }
+        }
+
+        function toggleDateSelection(year, month, day, cellElement) {
+            const dateKey = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+            if (selectedDates.has(dateKey)) {
+                selectedDates.delete(dateKey);
+                cellElement.classList.remove('selected-date');
+            } else {
+                selectedDates.add(dateKey);
+                cellElement.classList.add('selected-date');
+            }
+            updateSelectedDatesList();
+        }
+
+        function updateSelectedDatesList() {
+            selectedDatesList.innerHTML = '';
+            const sortedDates = [...selectedDates].sort();
+            sortedDates.forEach(date => {
+                const listItem = document.createElement('li');
+                listItem.textContent = date;
+                const removeBtn = document.createElement('span');
+                removeBtn.textContent = ' ×';
+                removeBtn.classList.add('remove-btn');
+                removeBtn.onclick = () => {
+                    selectedDates.delete(date);
+                    updateSelectedDatesList();
+                };
+                listItem.appendChild(removeBtn);
+                selectedDatesList.appendChild(listItem);
+            });
+            leaveDatesInput.value = JSON.stringify([...selectedDates]);
+        }
+
+        document.getElementById('yearSelect').addEventListener('change', (event) => {
+            selectedYear = parseInt(event.target.value);
+            if (selectedMonth !== null && selectedYear) {
+                generateCalendar(selectedYear, selectedMonth);
+            }
+        });
+
+        document.getElementById('monthSelect').addEventListener('change', (event) => {
+            selectedMonth = parseInt(event.target.value);
+            if (selectedMonth !== null && selectedYear) {
+                generateCalendar(selectedYear, selectedMonth);
+            }
+        });
+
+        // Handle editing functionality
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const rowId = btn.getAttribute('data-row-id');
+                const name = btn.getAttribute('data-name');
+                const dates = JSON.parse(btn.getAttribute('data-dates'));
+
+                // Set form to edit mode
+                document.getElementById('editMode').value
